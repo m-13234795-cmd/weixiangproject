@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WEIXIANG OS | V2.4 DUAL VOICE</title>
+    <style>
+        :root {
+            --bg: #0d0d12; --sidebar: #13131a; --accent: #00f2fe; --text: #e0e0e0;
+            --border: rgba(255, 255, 255, 0.08); --bubble-bot: #1c1c24; --bubble-user: #00f2fe;
+            --danger: #ff3e3e; --input-bg: #1a1a21;
+        }
+        body.light-mode {
+            --bg: #f4f7f6; --sidebar: #ffffff; --accent: #007bff; --text: #212529;
+            --border: rgba(0, 0, 0, 0.1); --bubble-bot: #ffffff; --bubble-user: #007bff;
+            --danger: #d9534f; --input-bg: #ffffff;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; transition: 0.2s ease; }
+        body { background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; display: flex; }
+
+        @keyframes glitch {
+            0% { transform: translate(0); }
+            20% { transform: translate(-3px, 3px); filter: hue-rotate(90deg); }
+            40% { transform: translate(-3px, -3px); }
+            100% { transform: translate(0); }
+        }
+        .glitch-active { animation: glitch 0.2s infinite; }
+
+        #auth-portal { position: fixed; inset: 0; background: var(--bg); z-index: 10000; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+        .auth-card { background: var(--sidebar); padding: 40px; border-radius: 20px; border: 1px solid var(--border); text-align: center; }
+        .auth-input { width: 300px; padding: 15px; margin-bottom: 15px; border-radius: 12px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text); outline: none; display: block; }
+        
+        #system-ui { display: none; width: 100%; height: 100%; }
+        .sidebar { width: 280px; background: var(--sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 25px; gap: 10px; }
+        .side-btn { width: 100%; padding: 14px; border-radius: 12px; border: 1px solid var(--border); background: transparent; color: var(--text); cursor: pointer; text-align: left; font-weight: 500; }
+        .active-mode { background: var(--accent) !important; color: #000 !important; border: none; }
+        
+        .chat-area { flex: 1; display: flex; flex-direction: column; position: relative; }
+        #chat-window { flex: 1; padding: 40px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+        .msg { padding: 14px 20px; border-radius: 20px; max-width: 75%; font-size: 15px; }
+        .user-msg { align-self: flex-end; background: var(--bubble-user); color: #000; border-bottom-right-radius: 4px; }
+        .bot-msg { align-self: flex-start; background: var(--bubble-bot); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+
+        .input-bar { padding: 25px; border-top: 1px solid var(--border); display: flex; gap: 15px; }
+        #msg-input { flex: 1; background: var(--input-bg); border: 1px solid var(--border); padding: 16px 24px; border-radius: 30px; color: var(--text); outline: none; }
+        
+        #lock-banner { display: none; position: absolute; top: 0; width: 100%; background: var(--danger); color: white; text-align: center; padding: 15px; font-weight: bold; z-index: 100; }
+        .voice-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.5; margin-top: 15px; }
+    </style>
+</head>
+<body>
+
+    <div id="auth-portal">
+        <div class="auth-card">
+            <h1 style="color:var(--accent);">WEIXIANG OS</h1>
+            <p style="margin-bottom: 25px; opacity: 0.7;">V2.4 Dual Voice Core</p>
+            <input type="text" id="u-field" class="auth-input" placeholder="User ID">
+            <input type="password" id="p-field" class="auth-input" placeholder="Passkey">
+            <button class="side-btn active-mode" style="text-align: center;" onclick="handleLogin()">BOOT SYSTEM</button>
+            <p onclick="handleSignup()" style="margin-top:20px; cursor:pointer; font-size:11px; text-decoration: underline;">Request New Credentials</p>
+        </div>
+    </div>
+
+    <div id="system-ui">
+        <div class="sidebar">
+            <h2 style="color:var(--accent); margin-bottom: 10px;">WEIXIANG</h2>
+            <button id="btn-roast" class="side-btn active-mode" onclick="setMode('roast')">🔥 SAVAGE MODE</button>
+            <button id="btn-help" class="side-btn" onclick="setMode('help')">🛡️ HELPER MODE</button>
+            
+            <p class="voice-label">System Voice</p>
+            <button id="btn-male" class="side-btn active-mode" onclick="setVoice('male')">👨 MALE AI</button>
+            <button id="btn-female" class="side-btn" onclick="setVoice('female')">👩 FEMALE AI</button>
+
+            <div style="margin-top: auto;">
+                <button class="side-btn" onclick="document.body.classList.toggle('light-mode')">🌓 THEME</button>
+                <button class="side-btn" style="color: var(--danger);" onclick="location.reload()">TERMINATE</button>
+            </div>
+        </div>
+        <div class="chat-area">
+            <div id="lock-banner">SECURITY BREACH: SYSTEM LOCK <span id="timer">60</span>s</div>
+            <div id="chat-window"></div>
+            <div class="input-bar">
+                <input type="text" id="msg-input" placeholder="Math, Time, Date, or Chat...">
+                <button onclick="sendMsg()" style="background:var(--accent); border:none; width: 50px; height: 50px; border-radius:50%; cursor:pointer;">→</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let mode = 'roast';
+        let voiceGender = 'male';
+        let yaps = 0;
+
+        function handleLogin() {
+            const u = document.getElementById('u-field').value;
+            const p = document.getElementById('p-field').value;
+            if(localStorage.getItem("wx_" + u) === p && u !== "") {
+                document.getElementById('auth-portal').style.display = 'none';
+                document.getElementById('system-ui').style.display = 'flex';
+                botTalk("System Online. Voice modules initialized.");
+            } else alert("Credentials rejected.");
+        }
+
+        function handleSignup() {
+            const u = prompt("Username:"); const p = prompt("Password:");
+            if(u && p) { localStorage.setItem("wx_" + u, p); alert("User Registered."); }
+        }
+
+        function setMode(m) {
+            mode = m;
+            document.getElementById('btn-roast').classList.toggle('active-mode', m === 'roast');
+            document.getElementById('btn-help').classList.toggle('active-mode', m === 'help');
+            botTalk(m === 'roast' ? "Savage Mode engaged." : "I am here to help you.");
+        }
+
+        function setVoice(g) {
+            voiceGender = g;
+            document.getElementById('btn-male').classList.toggle('active-mode', g === 'male');
+            document.getElementById('btn-female').classList.toggle('active-mode', g === 'female');
+            botTalk("Voice changed to " + g + ".");
+        }
+
+        function botTalk(txt) {
+            const win = document.getElementById('chat-window');
+            const d = document.createElement('div');
+            d.className = "msg bot-msg"; d.innerText = txt;
+            win.appendChild(d); win.scrollTop = win.scrollHeight;
+
+            window.speechSynthesis.cancel();
+            const msg = new SpeechSynthesisUtterance(txt);
+            
+            // Voice Selection Logic
+            const voices = window.speechSynthesis.getVoices();
+            if (voiceGender === 'female') {
+                // Tries to find a female sounding voice
+                msg.voice = voices.find(v => v.name.includes('Google UK English Female') || v.name.includes('Female') || v.name.includes('Zira'));
+                msg.pitch = (mode === 'roast') ? 1.1 : 1.4; // Slightly higher for female
+            } else {
+                msg.voice = voices.find(v => v.name.includes('Male') || v.name.includes('David'));
+                msg.pitch = (mode === 'roast') ? 0.6 : 0.9; // Deeper for male
+            }
+            
+            msg.rate = 1;
+            window.speechSynthesis.speak(msg);
+        }
+
+        function solveMath(str) {
+            try {
+                let expression = str.replace(/[^-()\d/*+.]/g, '');
+                if (expression === "") return null;
+                return eval(expression);
+            } catch (e) { return null; }
+        }
+
+        function sendMsg() {
+            const inp = document.getElementById('msg-input');
+            const raw = inp.value.trim().toLowerCase();
+            if(!raw || inp.disabled) return;
+
+            const forbidden = ["fuck", "bitch", "asshole", "ass", "dick", "kukubird", "motherfucker", "fucking"];
+            if (forbidden.some(word => raw.includes(word))) {
+                triggerLockdown(60);
+                inp.value = "";
+                return;
+            }
+
+            const uD = document.createElement('div');
+            uD.className = "msg user-msg"; uD.innerHTML = raw;
+            document.getElementById('chat-window').appendChild(uD);
+            inp.value = "";
+
+            setTimeout(() => {
+                let reply = "";
+                const now = new Date();
+
+                if (raw.includes("time")) {
+                    reply = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                } else if (raw.includes("date")) {
+                    reply = now.toDateString();
+                } else if (/\d/.test(raw)) {
+                    let res = solveMath(raw);
+                    if (res !== null) reply = "Result: " + res;
+                }
+                
+                if (reply === "") {
+                    if (mode === 'roast') {
+                        const r = ["Go away, you're boring.", "My CPU is too expensive for this conversation.", "Error: Intelligence not found in user."];
+                        reply = r[Math.floor(Math.random()*r.length)];
+                        yaps++; if(yaps >= 4) triggerLockdown(10);
+                    } else {
+                        reply = "How else can I assist you with the system?";
+                    }
+                } else {
+                    reply = (mode === 'roast') ? reply + ". Not that you'll do anything useful with that info." : "The information you requested is: " + reply;
+                }
+                botTalk(reply);
+            }, 600);
+        }
+
+        function triggerLockdown(sec) {
+            const banner = document.getElementById('lock-banner');
+            const timer = document.getElementById('timer');
+            const inp = document.getElementById('msg-input');
+            const body = document.getElementById('system-ui');
+            botTalk("SECURITY ALERT.");
+            inp.disabled = true; banner.style.display = 'block';
+            if(sec > 10) body.classList.add('glitch-active');
+            let timeLeft = sec;
+            const clock = setInterval(() => {
+                timeLeft--; timer.innerText = timeLeft;
+                if(timeLeft <= 0) {
+                    clearInterval(clock); inp.disabled = false;
+                    banner.style.display = 'none'; body.classList.remove('glitch-active');
+                    yaps = 0; botTalk("Unlocked.");
+                }
+            }, 1000);
+        }
+
+        // Initialize voices list for browser
+        window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.getVoices(); };
+        document.getElementById('msg-input').addEventListener('keypress', (e) => { if(e.key === 'Enter') sendMsg(); });
+    </script>
+</body>
+</html>
